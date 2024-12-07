@@ -1,100 +1,217 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
+import { connectToRaspberryPi } from "./lib/connectToPi";
+import { issueCredential } from "./lib/issueCredential";
+import { getCredentials } from "./lib/getCredentials";
+import { deleteCredential } from "./lib/deleteCredential";
+
+interface Credential {
+  id: string;
+  deviceId: string;
+  deviceType: string;
+  timestamp: string;
+  revoked?: boolean;
+  credentialAttributes: any;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [connectionStatus, setConnectionStatus] = useState("Not Connected");
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [connectionId, setConnectionId] = useState("");
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [credentialLoading, setCredentialLoading] = useState(false);
+  const [deleteIdLoading, setDeleteIdLoading] = useState<string>("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const handleConnect = async () => {
+    setConnectLoading(true);
+    // Simulate connection establishment
+    try {
+      const id = await connectToRaspberryPi();
+      await getCreds();
+      setConnectionStatus(`Connected to ${id}`);
+      setConnectionId(id);
+      setConnectLoading(false);
+    } catch (error) {
+      setConnectionStatus(error as string);
+      setConnectLoading(false);
+    }
+  };
+
+  const handleIssueCredential = async () => {
+    setCredentialLoading(true);
+    try {
+      await issueCredential();
+      setConnectionStatus("Connected");
+      getCreds();
+      setCredentialLoading(false);
+      alert("Credential issued successfully!");
+    } catch (error) {
+      setConnectionStatus(error as string);
+      setCredentialLoading(false);
+    }
+  };
+
+  const getCreds = async () => {
+    try {
+      const credentials = await getCredentials();
+      console.log(credentials);
+      setCredentials(credentials);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleDeleteCredential = async (credentialId: string) => {
+    setDeleteIdLoading(credentialId);
+    if (confirm("Are you sure you want to delete this credential?")) {
+      try {
+        await deleteCredential(credentialId);
+        setCredentials((prevCredentials) =>
+          prevCredentials.filter((credential) => credential.id !== credentialId)
+        );
+      } catch (error) {
+        alert(error as string);
+      }
+      // Add logic to revoke credential here
+    }
+    setDeleteIdLoading("");
+  };
+
+  const handleRevokeCredential = (index: number) => {
+    if (confirm("Are you sure you want to revoke this credential?")) {
+      setCredentials((prevCredentials) => {
+        const updatedCredentials = [...prevCredentials];
+        updatedCredentials[index].revoked = true;
+        return updatedCredentials;
+      });
+      alert("Credential revoked successfully!");
+      // Add logic to revoke credential here
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <header className="text-center mb-8">
+        <h1 className="text-4xl font-bold">
+          Decentralized Identity for IoT Devices
+        </h1>
+        <p className="text-lg mt-4">Focus: Credential Revocation</p>
+      </header>
+
+      <main>
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">
+            Connection Establishment
+          </h2>
+          <button
+            onClick={handleConnect}
+            disabled={connectLoading}
+            className={`px-4 py-2 rounded ${
+              connectLoading
+                ? "bg-gray-300 text-gray-700 cursor-not-allowed"
+                : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {connectLoading
+              ? "Connecting to Raspberry Pi..."
+              : "Connect to Raspberry Pi"}
+          </button>
+          <p className="text-gray-700 mt-4">Status: {connectionStatus}</p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Issue Credential</h2>
+          <button
+            onClick={handleIssueCredential}
+            disabled={credentialLoading || !connectionId}
+            className={`px-4 py-2 rounded ${
+              credentialLoading || !connectionId
+                ? "bg-gray-300 text-gray-700 cursor-not-allowed"
+                : "bg-green-500 text-white hover:bg-green-600"
+            }`}
           >
-            Read our docs
-          </a>
-        </div>
+            {credentialLoading ? "Issuing Credential" : "Issue Credential"}
+          </button>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Credentials</h2>
+          <table className="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 p-2">Device ID</th>
+                <th className="border border-gray-300 p-2">Device Type</th>
+                <th className="border border-gray-300 p-2">Timestamp</th>
+                <th className="border border-gray-300 p-2">Revoke</th>
+                <th className="border border-gray-300 p-2">Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {credentials
+                .sort(
+                  (a, b) =>
+                    new Date(b.credentialAttributes[2].value).getTime() -
+                    new Date(a.credentialAttributes[2].value).getTime()
+                )
+                .map((credential) => (
+                  <tr key={credential.id} className="text-center">
+                    <td className="border border-gray-300 p-2">
+                      {credential.credentialAttributes[0].value}
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      {credential.credentialAttributes[1].value}
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      {new Date(
+                        credential.credentialAttributes[2].value
+                      ).toLocaleString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "numeric",
+                        hour12: true,
+                      })}
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      {credential.revoked ? (
+                        "Revoked"
+                      ) : (
+                        <button
+                          onClick={() => handleRevokeCredential(index)}
+                          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      {credential.revoked ? (
+                        "Revoked"
+                      ) : (
+                        <button
+                          onClick={() => handleDeleteCredential(credential.id)}
+                          disabled={deleteIdLoading === credential.id}
+                          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                        >
+                          {deleteIdLoading === credential.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      <footer className="text-center mt-8">
+        <p>
+          Built for demonstrating decentralized identity management for IoT
+          devices
+        </p>
       </footer>
     </div>
   );
