@@ -12,12 +12,14 @@ interface Credential {
   timestamp: string;
   revoked?: boolean;
   credentialAttributes: any;
+  state: string;
 }
 
 export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState("Not Connected");
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [connectionId, setConnectionId] = useState("");
+  const [credentialId, setCredentialId] = useState("");
   const [connectLoading, setConnectLoading] = useState(false);
   const [credentialLoading, setCredentialLoading] = useState(false);
   const [deleteIdLoading, setDeleteIdLoading] = useState<string>("");
@@ -40,11 +42,10 @@ export default function Home() {
   const handleIssueCredential = async () => {
     setCredentialLoading(true);
     try {
-      await issueCredential();
-      setConnectionStatus("Connected");
+      const credential = await issueCredential();
+      setCredentialId(credential.id);
       getCreds();
       setCredentialLoading(false);
-      alert("Credential issued successfully!");
     } catch (error) {
       setConnectionStatus(error as string);
       setCredentialLoading(false);
@@ -132,6 +133,9 @@ export default function Home() {
           >
             {credentialLoading ? "Issuing Credential" : "Issue Credential"}
           </button>
+          <p className="text-gray-700 mt-4">
+            Credential ID: {credentialId ? credentialId : "None"}
+          </p>
         </section>
 
         <section className="mb-8">
@@ -142,6 +146,7 @@ export default function Home() {
                 <th className="border border-gray-300 p-2">Device ID</th>
                 <th className="border border-gray-300 p-2">Device Type</th>
                 <th className="border border-gray-300 p-2">Timestamp</th>
+                <th className="border border-gray-300 p-2">State</th>
                 <th className="border border-gray-300 p-2">Revoke</th>
                 <th className="border border-gray-300 p-2">Delete</th>
               </tr>
@@ -153,7 +158,7 @@ export default function Home() {
                     new Date(b.credentialAttributes[2].value).getTime() -
                     new Date(a.credentialAttributes[2].value).getTime()
                 )
-                .map((credential) => (
+                .map((credential, index) => (
                   <tr key={credential.id} className="text-center">
                     <td className="border border-gray-300 p-2">
                       {credential.credentialAttributes[0].value}
@@ -174,6 +179,9 @@ export default function Home() {
                       })}
                     </td>
                     <td className="border border-gray-300 p-2">
+                      {credential.state}
+                    </td>
+                    <td className="border border-gray-300 p-2">
                       {credential.revoked ? (
                         "Revoked"
                       ) : (
@@ -186,19 +194,15 @@ export default function Home() {
                       )}
                     </td>
                     <td className="border border-gray-300 p-2">
-                      {credential.revoked ? (
-                        "Revoked"
-                      ) : (
-                        <button
-                          onClick={() => handleDeleteCredential(credential.id)}
-                          disabled={deleteIdLoading === credential.id}
-                          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                        >
-                          {deleteIdLoading === credential.id
-                            ? "Deleting..."
-                            : "Delete"}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleDeleteCredential(credential.id)}
+                        disabled={deleteIdLoading === credential.id}
+                        className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                      >
+                        {deleteIdLoading === credential.id
+                          ? "Deleting..."
+                          : "Delete"}
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -1,7 +1,7 @@
 export async function deleteCredential(credentialId: string) {
   try {
     const response = await fetch(
-      `http://localhost:4000/delete-credential/${credentialId}`,
+      `${process.env.NEXT_PUBLIC_RASPBERRY_PI_SERVER_BASE_URL}/delete-credential/${credentialId}`,
       {
         method: "DELETE",
       }

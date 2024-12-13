@@ -1,14 +1,19 @@
-export async function issueCredential() {
+export async function issueCredential(): Promise<{ id: string }> {
   try {
-    const response = await fetch("http://localhost:5000/issue-credential", {
-      method: "POST",
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_LAPTOP_SERVER_BASE_URL}/issue-credential`,
+      {
+        method: "POST",
+      }
+    );
     if (response.ok) {
-      alert("Issued a credential to Raspberry Pi agent successfully!");
+      const credentialId = await response.json();
+      console.log(credentialId);
+      return credentialId;
     } else {
-      alert("Failed to connect");
+      throw new Error("Failed to connect");
     }
   } catch (error) {
-    console.error("Error:", error);
+    throw new Error(error as string);
   }
 }
